@@ -171,7 +171,7 @@ function RoutesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('customers')
-        .select('id, name, address')
+        .select('id, name, address, latitude, longitude')
         .order('name')
       
       if (error) throw error
