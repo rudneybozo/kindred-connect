@@ -15,21 +15,32 @@ function LoginComponent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isSignUp, setIsSignUp] = useState(false)
   const navigate = useNavigate()
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (error) throw error
-      toast.success('Logado com sucesso!')
-      navigate({ to: '/dashboard' })
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        })
+        if (error) throw error
+        toast.success('Cadastro realizado! Verifique seu email ou tente entrar.')
+        setIsSignUp(false)
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (error) throw error
+        toast.success('Logado com sucesso!')
+        navigate({ to: '/dashboard' })
+      }
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao fazer login')
+      toast.error(error.message || 'Erro na autenticação')
     } finally {
       setLoading(false)
     }
@@ -46,11 +57,11 @@ function LoginComponent() {
           </div>
           <CardTitle className="text-2xl font-bold">Roteirização SaaS</CardTitle>
           <CardDescription>
-            Entre com suas credenciais para acessar o sistema
+            {isSignUp ? 'Crie sua conta para começar' : 'Entre com suas credenciais para acessar o sistema'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleAuth} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Email</label>
               <Input
@@ -72,8 +83,18 @@ function LoginComponent() {
               />
             </div>
             <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
+              {loading ? 'Aguarde...' : isSignUp ? 'Criar Conta' : 'Entrar'}
             </Button>
+            
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                {isSignUp ? 'Já tem uma conta? Entre aqui' : 'Não tem uma conta? Cadastre-se'}
+              </button>
+            </div>
           </form>
         </CardContent>
       </Card>
