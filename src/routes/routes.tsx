@@ -399,6 +399,9 @@ function RoutesPage() {
   }
 
   const handleDeleteClick = (route: any) => {
+    setSelectedRoute(route)
+    setIsDeleteDialogOpen(true)
+  }
 
   const handleOptimize = async () => {
     const values = form.getValues()
@@ -1081,6 +1084,6 @@ function RoutesPage() {
     </div>
   )
 }
-}
+
 
 

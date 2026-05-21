@@ -220,6 +220,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_my_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
