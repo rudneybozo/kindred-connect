@@ -106,6 +106,9 @@ function RoutesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedRoute, setSelectedRoute] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [optimizedData, setOptimizedData] = useState<any>(null)
+  const [isOptimizing, setIsOptimizing] = useState(false)
+  const [currentTab, setCurrentTab] = useState('config')
 
   const canManage = currentProfile?.role === 'admin' || currentProfile?.role === 'lancador'
 
