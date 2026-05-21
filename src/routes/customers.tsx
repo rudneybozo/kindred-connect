@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
@@ -13,8 +13,12 @@ import {
   MapPin,
   Phone,
   MessageSquare,
-  ExternalLink
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import debounce from 'lodash/debounce'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -84,10 +88,27 @@ function CustomersPage() {
   const { data: currentProfile, isLoading: profileLoading } = useProfile()
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+
+  const handleSearch = useCallback(
+    debounce((value: string) => {
+      setDebouncedSearch(value)
+      setPage(1)
+    }, 500),
+    []
+  )
+
+  const onSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchTerm(value)
+    handleSearch(value)
+  }
 
   const canManage = currentProfile?.role === 'admin' || currentProfile?.role === 'lancador'
 
@@ -102,18 +123,35 @@ function CustomersPage() {
     },
   })
 
-  const { data: customers, isLoading } = useQuery({
-    queryKey: ['customers'],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['customers', debouncedSearch, page],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('customers')
-        .select('*')
-        .order('name')
+        .select('*', { count: 'exact' })
       
-      if (error) throw error
-      return data
+      if (debouncedSearch) {
+        query = query.or(`name.ilike.%${debouncedSearch}%,address.ilike.%${debouncedSearch}%`)
+      }
+
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+
+      const { data, error, count } = await query
+        .order('name')
+        .range(from, to)
+      
+      if (error) {
+        toast.error('Erro ao carregar clientes: ' + error.message)
+        throw error
+      }
+      return { customers: data, count: count || 0 }
     }
   })
+
+  const customers = data?.customers
+  const totalCount = data?.count || 0
+  const totalPages = Math.ceil(totalCount / pageSize)
 
   const createMutation = useMutation({
     mutationFn: async (values: CustomerFormValues) => {
@@ -254,10 +292,10 @@ function CustomersPage() {
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <Input 
-              placeholder="Buscar por nome, endereço ou telefone..." 
+              placeholder="Buscar por nome ou endereço..." 
               className="pl-10 bg-white"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={onSearchChange}
             />
           </div>
         </div>
@@ -276,19 +314,29 @@ function CustomersPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-64" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-20" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    <Loader2 className="animate-spin inline-block mr-2" /> Carregando clientes...
+                  <TableCell colSpan={5} className="h-24 text-center text-red-500">
+                    Falha ao carregar dados. Tente atualizar a página.
                   </TableCell>
                 </TableRow>
-              ) : filteredCustomers?.length === 0 ? (
+              ) : customers?.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center text-slate-500">
                     Nenhum cliente encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCustomers?.map((customer) => (
+                customers?.map((customer) => (
                   <TableRow key={customer.id} className="group">
                     <TableCell className="font-medium text-slate-900">{customer.name}</TableCell>
                     <TableCell className="text-slate-600 max-w-[300px] truncate">{customer.address}</TableCell>
@@ -356,11 +404,23 @@ function CustomersPage() {
         {/* Cards para Mobile */}
         <div className="md:hidden divide-y">
           {isLoading ? (
-            <div className="p-8 text-center"><Loader2 className="animate-spin inline-block" /></div>
-          ) : filteredCustomers?.length === 0 ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="p-4 space-y-3">
+                <div className="flex justify-between items-start">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-8 w-20" />
+                </div>
+                <Skeleton className="h-4 w-full" />
+                <div className="flex gap-2 pt-2">
+                  <Skeleton className="h-9 flex-1" />
+                  <Skeleton className="h-9 flex-1" />
+                </div>
+              </div>
+            ))
+          ) : customers?.length === 0 ? (
             <div className="p-8 text-center text-slate-500">Nenhum cliente encontrado.</div>
           ) : (
-            filteredCustomers?.map((customer) => (
+            customers?.map((customer) => (
               <div key={customer.id} className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
                   <h3 className="font-bold text-slate-900">{customer.name}</h3>
@@ -405,6 +465,36 @@ function CustomersPage() {
             ))
           )}
         </div>
+        
+        {/* Pagination */}
+        {!isLoading && totalPages > 1 && (
+          <div className="p-4 border-t bg-slate-50/50 flex items-center justify-between">
+            <p className="text-sm text-slate-500">
+              Mostrando <span className="font-medium">{customers?.length || 0}</span> de <span className="font-medium">{totalCount}</span> clientes
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                <ChevronLeft size={16} />
+              </Button>
+              <span className="text-sm font-medium px-2">
+                Página {page} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal de Cadastro/Edição */}

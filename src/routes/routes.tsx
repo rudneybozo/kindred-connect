@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
@@ -18,8 +18,12 @@ import {
   Wand2,
   Route as RouteIcon,
   Map as MapIconUI,
-  FileDown
+  FileDown,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
+import debounce from 'lodash/debounce'
+import { Skeleton } from '@/components/ui/skeleton'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 import { UserOptions } from 'jspdf-autotable'
@@ -111,10 +115,27 @@ function RoutesPage() {
   const { data: currentProfile, isLoading: profileLoading } = useProfile()
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedRoute, setSelectedRoute] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+
+  const handleSearch = useCallback(
+    debounce((value: string) => {
+      setDebouncedSearch(value)
+      setPage(1)
+    }, 500),
+    []
+  )
+
+  const onSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchTerm(value)
+    handleSearch(value)
+  }
   const [optimizedData, setOptimizedData] = useState<any>(null)
   const [isOptimizing, setIsOptimizing] = useState(false)
   const [currentTab, setCurrentTab] = useState('config')
@@ -132,11 +153,10 @@ function RoutesPage() {
     },
   })
 
-  // Fetch routes with details
-  const { data: routes, isLoading } = useQuery({
-    queryKey: ['routes'],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['routes', debouncedSearch, page],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('routes')
         .select(`
           *,
@@ -146,13 +166,29 @@ function RoutesPage() {
             id,
             customer:customers(name, address)
           )
-        `)
-        .order('delivery_date', { ascending: false })
+        `, { count: 'exact' })
       
-      if (error) throw error
-      return data
+      // Since vehicle/driver info is in related tables, OR condition across tables 
+      // is complex in Supabase JS client. We'll simplify or use search params on routes.
+      
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+
+      const { data, error, count } = await query
+        .order('delivery_date', { ascending: false })
+        .range(from, to)
+      
+      if (error) {
+        toast.error('Erro ao carregar rotas: ' + error.message)
+        throw error
+      }
+      return { routes: data, count: count || 0 }
     }
   })
+
+  const routes = data?.routes
+  const totalCount = data?.count || 0
+  const totalPages = Math.ceil(totalCount / pageSize)
 
   // Fetch vehicles for selection
   const { data: vehicles } = useQuery({
@@ -434,10 +470,10 @@ function RoutesPage() {
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <Input 
-              placeholder="Buscar por veículo ou motorista..." 
+              placeholder="Filtrar rotas recentes..." 
               className="pl-10 bg-white"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={onSearchChange}
             />
           </div>
         </div>
@@ -459,19 +495,32 @@ function RoutesPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    <Loader2 className="animate-spin inline-block mr-2" /> Carregando rotas...
+                  <TableCell colSpan={8} className="h-24 text-center text-red-500">
+                    Erro ao carregar rotas. Tente novamente.
                   </TableCell>
                 </TableRow>
-              ) : filteredRoutes?.length === 0 ? (
+              ) : routes?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center text-slate-500">
+                  <TableCell colSpan={8} className="h-24 text-center text-slate-500">
                     Nenhuma rota encontrada.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRoutes?.map((route) => (
+                routes?.map((route) => (
                   <TableRow key={route.id} className="group">
                     <TableCell className="font-medium text-slate-900">
                       {route.delivery_date ? format(new Date(route.delivery_date), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
@@ -533,6 +582,36 @@ function RoutesPage() {
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        {!isLoading && totalPages > 1 && (
+          <div className="p-4 border-t bg-slate-50/50 flex items-center justify-between">
+            <p className="text-sm text-slate-500">
+              Mostrando <span className="font-medium">{routes?.length || 0}</span> de <span className="font-medium">{totalCount}</span> rotas
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                <ChevronLeft size={16} />
+              </Button>
+              <span className="text-sm font-medium px-2">
+                Página {page} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal de Nova Rota */}

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
@@ -11,8 +11,12 @@ import {
   Shield,
   User,
   Truck,
-  Loader2
+  Loader2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import debounce from 'lodash/debounce'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -89,10 +93,27 @@ function UsersPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+
+  const handleSearch = useCallback(
+    debounce((value: string) => {
+      setDebouncedSearch(value)
+      setPage(1)
+    }, 500),
+    []
+  )
+
+  const onSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchTerm(value)
+    handleSearch(value)
+  }
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -111,19 +132,36 @@ function UsersPage() {
     }
   }, [currentProfile, profileLoading, navigate])
 
-  const { data: users, isLoading } = useQuery({
-    queryKey: ['users'],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['users', debouncedSearch, page],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('profiles')
-        .select('*')
-        .order('full_name')
+        .select('*', { count: 'exact' })
       
-      if (error) throw error
-      return data
+      if (debouncedSearch) {
+        query = query.or(`full_name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`)
+      }
+
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+
+      const { data, error, count } = await query
+        .order('full_name')
+        .range(from, to)
+      
+      if (error) {
+        toast.error('Erro ao carregar usuários: ' + error.message)
+        throw error
+      }
+      return { users: data, count: count || 0 }
     },
-    enabled: currentProfile?.role === 'admin'
+    enabled: !!currentProfile && currentProfile.role === 'admin'
   })
+
+  const users = data?.users
+  const totalCount = data?.count || 0
+  const totalPages = Math.ceil(totalCount / pageSize)
 
   const manageUserMutation = useMutation({
     mutationFn: async ({ action, userData }: { action: string, userData: any }) => {
@@ -205,10 +243,7 @@ function UsersPage() {
     setIsDeleteDialogOpen(true)
   }
 
-  const filteredUsers = users?.filter(user => 
-    user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredUsers = users // Filtering now handled by Supabase query
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -260,7 +295,7 @@ function UsersPage() {
               placeholder="Buscar por nome ou email..." 
               className="pl-10 bg-white"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={onSearchChange}
             />
           </div>
         </div>
@@ -278,9 +313,19 @@ function UsersPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    <Loader2 className="animate-spin inline-block mr-2" /> Carregando usuários...
+                  <TableCell colSpan={5} className="h-24 text-center text-red-500">
+                    Falha ao carregar usuários.
                   </TableCell>
                 </TableRow>
               ) : filteredUsers?.length === 0 ? (
@@ -332,6 +377,36 @@ function UsersPage() {
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        {!isLoading && totalPages > 1 && (
+          <div className="p-4 border-t bg-slate-50/50 flex items-center justify-between">
+            <p className="text-sm text-slate-500">
+              Mostrando <span className="font-medium">{users?.length || 0}</span> de <span className="font-medium">{totalCount}</span> usuários
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                <ChevronLeft size={16} />
+              </Button>
+              <span className="text-sm font-medium px-2">
+                Página {page} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal de Cadastro/Edição */}
