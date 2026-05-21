@@ -155,26 +155,51 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const [session, setSession] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const fetchSessionAndProfile = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
+      
+      if (session) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        setProfile(profileData);
+      }
+
       setLoading(false);
+      
       if (!session && location.pathname !== '/login') {
         navigate({ to: '/login' });
       } else if (session && (location.pathname === '/login' || location.pathname === '/')) {
         navigate({ to: '/dashboard' });
       }
-    });
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    fetchSessionAndProfile();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
-      if (!session && location.pathname !== '/login') {
-        navigate({ to: '/login' });
+      if (session) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        setProfile(profileData);
+      } else {
+        setProfile(null);
+        if (location.pathname !== '/login') {
+          navigate({ to: '/login' });
+        }
       }
     });
 
@@ -182,7 +207,7 @@ function RootComponent() {
   }, [location.pathname]);
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Carregando...</div>;
+    return <div className="flex items-center justify-center min-h-screen font-medium text-slate-600">Carregando sistema...</div>;
   }
 
   const isLoginPage = location.pathname === '/login';
@@ -192,7 +217,7 @@ function RootComponent() {
       <div className="min-h-screen bg-slate-50">
         {!isLoginPage && session && (
           <>
-            <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
+            <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} role={profile?.role} />
             <div className="lg:pl-64 flex flex-col min-h-screen">
               <header className="h-16 bg-white border-b flex items-center justify-between px-4 sticky top-0 z-30 lg:hidden">
                 <div className="flex items-center gap-3">
@@ -218,4 +243,5 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
+
 
