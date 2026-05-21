@@ -286,8 +286,8 @@ function RoutesPage() {
 
   const handleOptimize = async () => {
     const values = form.getValues()
-    if (!values.customer_ids.length) {
-      toast.error('Selecione pelo menos um cliente')
+    if (values.customer_ids.length < 2) {
+      toast.error('Selecione pelo menos 2 clientes (o primeiro será considerado o Ponto de Partida)')
       return
     }
 
@@ -296,6 +296,11 @@ function RoutesPage() {
       const selectedCustomers = values.customer_ids.map(id => 
         customers?.find(c => c.id === id)
       ).filter(Boolean)
+
+      if (selectedCustomers.some(c => !c?.latitude || !c?.longitude)) {
+        toast.error('Alguns clientes selecionados não possuem coordenadas geográficas configuradas.')
+        return
+      }
 
       const { data, error } = await supabase.functions.invoke('optimize-route', {
         body: { locations: selectedCustomers }
