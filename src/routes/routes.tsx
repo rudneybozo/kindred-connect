@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
@@ -14,7 +14,10 @@ import {
   CheckCircle2,
   Clock,
   User as UserIcon,
-  Truck
+  Truck,
+  Wand2,
+  Route as RouteIcon,
+  Map as MapIconUI
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -78,6 +81,8 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import MapView from '@/components/MapView'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const routeSchema = z.object({
   vehicle_id: z.string().min(1, 'Selecione um veículo'),
@@ -101,6 +106,9 @@ function RoutesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedRoute, setSelectedRoute] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [optimizedData, setOptimizedData] = useState<any>(null)
+  const [isOptimizing, setIsOptimizing] = useState(false)
+  const [currentTab, setCurrentTab] = useState('config')
 
   const canManage = currentProfile?.role === 'admin' || currentProfile?.role === 'lancador'
 
@@ -171,7 +179,7 @@ function RoutesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('customers')
-        .select('id, name, address')
+        .select('id, name, address, latitude, longitude')
         .order('name')
       
       if (error) throw error
@@ -183,17 +191,30 @@ function RoutesPage() {
     mutationFn: async (values: RouteFormValues) => {
       const { customer_ids, ...routeData } = values
       
+      const payload = {
+        ...routeData,
+        distance: optimizedData?.routes[0]?.distance || 0,
+        duration: optimizedData?.routes[0]?.duration || 0,
+        route_geometry: optimizedData?.routes[0]?.geometry || null,
+      }
+
       // 1. Create route
       const { data: route, error: routeError } = await supabase
         .from('routes')
-        .insert([routeData])
+        .insert([payload])
         .select()
         .single()
       
       if (routeError) throw routeError
 
-      // 2. Create stops
-      const stops = customer_ids.map((customerId, index) => ({
+      // 2. Create stops using optimized order if available
+      const orderedCustomerIds = optimizedData 
+        ? optimizedData.routes[0].steps
+            .filter((s: any) => s.type === 'job')
+            .map((s: any) => customer_ids[s.id])
+        : customer_ids
+
+      const stops = orderedCustomerIds.map((customerId: string, index: number) => ({
         route_id: route.id,
         customer_id: customerId,
         order_index: index,
@@ -211,6 +232,8 @@ function RoutesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routes'] })
       setIsModalOpen(false)
+      setOptimizedData(null)
+      setCurrentTab('config')
       form.reset()
       toast.success('Rota criada com sucesso')
     },
@@ -252,6 +275,36 @@ function RoutesPage() {
     setIsDeleteDialogOpen(true)
   }
 
+  const handleOptimize = async () => {
+    const values = form.getValues()
+    if (!values.customer_ids.length) {
+      toast.error('Selecione pelo menos um cliente')
+      return
+    }
+
+    setIsOptimizing(true)
+    try {
+      const selectedCustomers = values.customer_ids.map(id => 
+        customers?.find(c => c.id === id)
+      ).filter(Boolean)
+
+      const { data, error } = await supabase.functions.invoke('optimize-route', {
+        body: { locations: selectedCustomers }
+      })
+
+      if (error) throw error
+      
+      setOptimizedData(data)
+      setCurrentTab('optimization')
+      toast.success('Rota otimizada com sucesso!')
+    } catch (error: any) {
+      console.error(error)
+      toast.error(`Erro na otimização: ${error.message}`)
+    } finally {
+      setIsOptimizing(false)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pendente':
@@ -285,6 +338,8 @@ function RoutesPage() {
           <Button 
             onClick={() => {
               setIsEditing(false)
+              setOptimizedData(null)
+              setCurrentTab('config')
               form.reset({
                 vehicle_id: '',
                 driver_id: '',
@@ -323,6 +378,8 @@ function RoutesPage() {
                 <TableHead>Data</TableHead>
                 <TableHead>Veículo</TableHead>
                 <TableHead>Motorista</TableHead>
+                <TableHead>Distância</TableHead>
+                <TableHead>Duração</TableHead>
                 <TableHead>Paradas</TableHead>
                 <TableHead>Status</TableHead>
                 {canManage && <TableHead className="text-right">Ações</TableHead>}
@@ -355,6 +412,12 @@ function RoutesPage() {
                           <div className="text-xs text-slate-500 font-mono">{route.vehicle?.plate}</div>
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell className="text-slate-600">
+                      {route.distance ? `${(route.distance / 1000).toFixed(1)} km` : '-'}
+                    </TableCell>
+                    <TableCell className="text-slate-600">
+                      {route.duration ? `${Math.round(route.duration / 60)} min` : '-'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -408,8 +471,22 @@ function RoutesPage() {
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
-              <ScrollArea className="flex-1 p-6">
-                <div className="space-y-6">
+              <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1 flex flex-col overflow-hidden">
+                <div className="px-6 border-b bg-slate-50/50">
+                  <TabsList className="grid w-full grid-cols-2 mt-2">
+                    <TabsTrigger value="config" className="flex items-center gap-2">
+                      <Pencil size={14} /> Configuração
+                    </TabsTrigger>
+                    <TabsTrigger value="optimization" disabled={!optimizedData} className="flex items-center gap-2">
+                      <Wand2 size={14} /> Otimização
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <div className="flex-1 overflow-hidden">
+                  <TabsContent value="config" className="h-full m-0">
+                    <ScrollArea className="h-full p-6">
+                      <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -584,19 +661,109 @@ function RoutesPage() {
                   </Card>
                 </div>
               </ScrollArea>
+            </TabsContent>
 
-              <DialogFooter className="p-6 border-t bg-slate-50">
-                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="bg-blue-600 hover:bg-blue-700"
-                  disabled={createMutation.isPending}
-                >
-                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Criar Rota
-                </Button>
+                <TabsContent value="optimization" className="h-full m-0">
+                  <ScrollArea className="h-full p-6">
+                    {optimizedData && (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                          <Card className="bg-slate-50 border-slate-200">
+                            <CardContent className="p-4 flex items-center gap-3">
+                              <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+                                <RouteIcon size={20} />
+                              </div>
+                              <div>
+                                <p className="text-xs text-slate-500 uppercase font-semibold">Distância Total</p>
+                                <p className="text-lg font-bold">{(optimizedData.routes[0].distance / 1000).toFixed(1)} km</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-slate-50 border-slate-200">
+                            <CardContent className="p-4 flex items-center gap-3">
+                              <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+                                <Clock size={20} />
+                              </div>
+                              <div>
+                                <p className="text-xs text-slate-500 uppercase font-semibold">Tempo Estimado</p>
+                                <p className="text-lg font-bold">{Math.round(optimizedData.routes[0].duration / 60)} min</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+
+                        <MapView 
+                          stops={form.watch('customer_ids').map(id => {
+                            const c = customers?.find(cust => cust.id === id);
+                            if (!c) return null;
+                            return {
+                              id: c.id,
+                              latitude: Number(c.latitude),
+                              longitude: Number(c.longitude),
+                              name: c.name
+                            };
+                          }).filter(Boolean) as any} 
+
+                          routeGeometry={optimizedData.routes[0].geometry}
+                        />
+
+                        <div className="space-y-3">
+                          <h3 className="font-semibold text-sm flex items-center gap-2">
+                            <MapIconUI size={16} /> Sequência de Entregas
+                          </h3>
+                          <div className="space-y-2">
+                            {optimizedData.routes[0].steps
+                              .filter((step: any) => step.type === 'job')
+                              .map((step: any, index: number) => {
+                                const customer = customers?.find(c => c.id === form.getValues('customer_ids')[step.id]);
+                                return (
+                                  <div key={index} className="flex items-center gap-3 p-3 bg-white border rounded-lg shadow-sm">
+                                    <div className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
+                                      {index + 1}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold truncate">{customer?.name}</p>
+                                      <p className="text-xs text-slate-500 truncate">{customer?.address}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </ScrollArea>
+                </TabsContent>
+                </div>
+              </Tabs>
+
+
+
+              <DialogFooter className="p-6 border-t bg-slate-50 flex flex-row items-center justify-between">
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="secondary"
+                    onClick={handleOptimize}
+                    disabled={isOptimizing || form.watch('customer_ids').length < 1}
+                  >
+                    {isOptimizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 size={14} className="mr-2" />}
+                    Otimizar
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="bg-blue-600 hover:bg-blue-700"
+                    disabled={createMutation.isPending || (currentTab === 'config' && !optimizedData)}
+                  >
+                    {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {optimizedData ? 'Confirmar e Criar' : 'Criar Rota'}
+                  </Button>
+                </div>
               </DialogFooter>
             </form>
           </Form>
