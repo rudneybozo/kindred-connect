@@ -232,6 +232,8 @@ function RoutesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routes'] })
       setIsModalOpen(false)
+      setOptimizedData(null)
+      setCurrentTab('config')
       form.reset()
       toast.success('Rota criada com sucesso')
     },
