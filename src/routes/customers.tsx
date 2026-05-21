@@ -300,7 +300,7 @@ function CustomersPage() {
                             variant="ghost" 
                             size="icon" 
                             className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                            onClick={() => openWhatsApp(customer.phone)}
+                            onClick={() => openWhatsApp(customer.phone || '')}
                           >
                             <MessageSquare size={14} />
                           </Button>
@@ -313,7 +313,7 @@ function CustomersPage() {
                           variant="ghost" 
                           size="sm" 
                           className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                          onClick={() => openMaps(customer.latitude, customer.longitude)}
+                          onClick={() => openMaps(customer.latitude || 0, customer.longitude || 0)}
                         >
                           <MapPin size={14} className="mr-1" /> Maps
                         </Button>
@@ -370,7 +370,7 @@ function CustomersPage() {
                         variant="outline" 
                         size="icon" 
                         className="h-8 w-8 text-emerald-600 border-emerald-100"
-                        onClick={() => openWhatsApp(customer.phone)}
+                        onClick={() => openWhatsApp(customer.phone || '')}
                       >
                         <MessageSquare size={14} />
                       </Button>
@@ -380,7 +380,7 @@ function CustomersPage() {
                         variant="outline" 
                         size="icon" 
                         className="h-8 w-8 text-blue-600 border-blue-100"
-                        onClick={() => openMaps(customer.latitude, customer.longitude)}
+                        onClick={() => openMaps(customer.latitude || 0, customer.longitude || 0)}
                       >
                         <MapPin size={14} />
                       </Button>
