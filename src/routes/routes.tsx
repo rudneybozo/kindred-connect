@@ -160,8 +160,8 @@ function RoutesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('vehicles')
-        .select('id, name, plate')
-        .eq('status', 'disponivel')
+        .select('id, name, plate, status')
+        .order('name')
       
       if (error) throw error
       return data
