@@ -762,10 +762,9 @@ function RoutesPage() {
                 </div>
               </DialogFooter>
             </form>
-          </Tabs>
-        </Form>
-      </DialogContent>
-    </Dialog>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmação de Exclusão */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
