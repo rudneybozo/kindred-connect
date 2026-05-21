@@ -10,7 +10,6 @@ import {
   Clock, 
   CheckCircle2,
   Calendar,
-  ChevronRight,
   ArrowUpRight
 } from 'lucide-react'
 import { 
@@ -21,17 +20,12 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer, 
-  LineChart, 
-  Line, 
   AreaChart, 
-  Area,
-  PieChart,
-  Pie,
-  Cell
+  Area
 } from 'recharts'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
-import { format, subDays, startOfDay, endOfDay } from 'date-fns'
+import { format, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
