@@ -275,6 +275,36 @@ function RoutesPage() {
     setIsDeleteDialogOpen(true)
   }
 
+  const handleOptimize = async () => {
+    const values = form.getValues()
+    if (!values.customer_ids.length) {
+      toast.error('Selecione pelo menos um cliente')
+      return
+    }
+
+    setIsOptimizing(true)
+    try {
+      const selectedCustomers = values.customer_ids.map(id => 
+        customers?.find(c => c.id === id)
+      ).filter(Boolean)
+
+      const { data, error } = await supabase.functions.invoke('optimize-route', {
+        body: { locations: selectedCustomers }
+      })
+
+      if (error) throw error
+      
+      setOptimizedData(data)
+      setCurrentTab('optimization')
+      toast.success('Rota otimizada com sucesso!')
+    } catch (error: any) {
+      console.error(error)
+      toast.error(`Erro na otimização: ${error.message}`)
+    } finally {
+      setIsOptimizing(false)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pendente':
