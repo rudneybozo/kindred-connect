@@ -314,6 +314,64 @@ function RoutesPage() {
     }
   }
 
+  const exportToPDF = (route: any) => {
+    const doc = new jsPDF() as jsPDFWithAutoTable
+    const dateStr = route.delivery_date ? format(new Date(route.delivery_date), 'dd/MM/yyyy', { locale: ptBR }) : '-'
+
+    // Header
+    doc.setFontSize(20)
+    doc.setTextColor(37, 99, 235) // Blue-600
+    doc.text('Relatório de Rota de Entrega', 14, 22)
+    
+    doc.setFontSize(10)
+    doc.setTextColor(100, 116, 139) // Slate-500
+    doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 30)
+
+    // Route info box
+    doc.setFillColor(248, 250, 252) // Slate-50
+    doc.roundedRect(14, 35, 182, 45, 2, 2, 'F')
+    
+    doc.setFontSize(11)
+    doc.setTextColor(30, 41, 59) // Slate-800
+    doc.setFont('helvetica', 'bold')
+    doc.text('Informações da Rota', 20, 42)
+    
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Data: ${dateStr}`, 20, 50)
+    doc.text(`Veículo: ${route.vehicle?.name || '-'} (${route.vehicle?.plate || '-'})`, 20, 57)
+    doc.text(`Motorista: ${route.driver?.full_name || '-'}`, 20, 64)
+    doc.text(`Distância Total: ${route.distance ? (route.distance / 1000).toFixed(1) + ' km' : '-'}`, 120, 50)
+    doc.text(`Duração Estimada: ${route.duration ? Math.round(route.duration / 60) + ' min' : '-'}`, 120, 57)
+    doc.text(`Status: ${route.status}`, 120, 64)
+
+    // Stops table
+    const tableData = route.stops?.map((stop: any, index: number) => [
+      index + 1,
+      stop.customer?.name || '-',
+      stop.customer?.address || '-',
+      'Pendente'
+    ]) || []
+
+    doc.autoTable({
+      startY: 85,
+      head: [['#', 'Cliente', 'Endereço', 'Status']],
+      body: tableData,
+      headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+      alternateRowStyles: { fillColor: [241, 245, 249] },
+      margin: { top: 85 },
+      styles: { fontSize: 9, cellPadding: 3 },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 45 },
+        2: { cellWidth: 90 },
+        3: { cellWidth: 25 }
+      }
+    })
+
+    doc.save(`rota-${dateStr.replace(/\//g, '-')}-${route.id.substring(0, 8)}.pdf`)
+    toast.success('PDF gerado com sucesso')
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pendente':
