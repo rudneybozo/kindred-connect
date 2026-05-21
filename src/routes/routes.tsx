@@ -413,6 +413,12 @@ function RoutesPage() {
                         </div>
                       </div>
                     </TableCell>
+                    <TableCell className="text-slate-600">
+                      {route.distance ? `${(route.distance / 1000).toFixed(1)} km` : '-'}
+                    </TableCell>
+                    <TableCell className="text-slate-600">
+                      {route.duration ? `${Math.round(route.duration / 60)} min` : '-'}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <UserIcon size={14} className="text-slate-400" />
