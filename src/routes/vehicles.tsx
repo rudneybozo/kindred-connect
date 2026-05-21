@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
@@ -10,8 +10,12 @@ import {
   MoreHorizontal,
   Truck,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import debounce from 'lodash/debounce'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -89,10 +93,27 @@ function VehiclesPage() {
   const { data: currentProfile, isLoading: profileLoading } = useProfile()
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+
+  const handleSearch = useCallback(
+    debounce((value: string) => {
+      setDebouncedSearch(value)
+      setPage(1)
+    }, 500),
+    []
+  )
+
+  const onSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchTerm(value)
+    handleSearch(value)
+  }
 
   const canManage = currentProfile?.role === 'admin' || currentProfile?.role === 'lancador'
 
@@ -107,18 +128,35 @@ function VehiclesPage() {
     },
   })
 
-  const { data: vehicles, isLoading } = useQuery({
-    queryKey: ['vehicles'],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['vehicles', debouncedSearch, page],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('vehicles')
-        .select('*')
-        .order('name')
+        .select('*', { count: 'exact' })
       
-      if (error) throw error
-      return data
+      if (debouncedSearch) {
+        query = query.or(`name.ilike.%${debouncedSearch}%,plate.ilike.%${debouncedSearch}%,model.ilike.%${debouncedSearch}%`)
+      }
+
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+
+      const { data, error, count } = await query
+        .order('name')
+        .range(from, to)
+      
+      if (error) {
+        toast.error('Erro ao carregar veículos: ' + error.message)
+        throw error
+      }
+      return { vehicles: data, count: count || 0 }
     }
   })
+
+  const vehicles = data?.vehicles
+  const totalCount = data?.count || 0
+  const totalPages = Math.ceil(totalCount / pageSize)
 
   const createMutation = useMutation({
     mutationFn: async (values: VehicleFormValues) => {
@@ -266,7 +304,7 @@ function VehiclesPage() {
               placeholder="Buscar por nome, placa ou modelo..." 
               className="pl-10 bg-white"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={onSearchChange}
             />
           </div>
         </div>
@@ -286,19 +324,30 @@ function VehiclesPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={canManage ? 6 : 5} className="h-24 text-center">
-                    <Loader2 className="animate-spin inline-block mr-2" /> Carregando frota...
+                  <TableCell colSpan={6} className="h-24 text-center text-red-500">
+                    Falha ao carregar veículos.
                   </TableCell>
                 </TableRow>
-              ) : filteredVehicles?.length === 0 ? (
+              ) : vehicles?.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={canManage ? 6 : 5} className="h-24 text-center text-slate-500">
                     Nenhum veículo encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredVehicles?.map((vehicle) => (
+                vehicles?.map((vehicle) => (
                   <TableRow key={vehicle.id} className="group">
                     <TableCell className="font-medium text-slate-900">{vehicle.name || vehicle.model}</TableCell>
                     <TableCell className="text-slate-600">{vehicle.plate}</TableCell>
@@ -339,11 +388,26 @@ function VehiclesPage() {
         {/* Cards para Mobile */}
         <div className="md:hidden divide-y">
           {isLoading ? (
-            <div className="p-8 text-center"><Loader2 className="animate-spin inline-block" /></div>
-          ) : filteredVehicles?.length === 0 ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="p-4 space-y-3">
+                <div className="flex justify-between items-start">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-6 w-16" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Skeleton className="h-9 flex-1" />
+                  <Skeleton className="h-9 flex-1" />
+                </div>
+              </div>
+            ))
+          ) : vehicles?.length === 0 ? (
             <div className="p-8 text-center text-slate-500">Nenhum veículo encontrado.</div>
           ) : (
-            filteredVehicles?.map((vehicle) => (
+            vehicles?.map((vehicle) => (
               <div key={vehicle.id} className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
                   <div>
@@ -376,6 +440,36 @@ function VehiclesPage() {
             ))
           )}
         </div>
+
+        {/* Pagination */}
+        {!isLoading && totalPages > 1 && (
+          <div className="p-4 border-t bg-slate-50/50 flex items-center justify-between">
+            <p className="text-sm text-slate-500">
+              Mostrando <span className="font-medium">{vehicles?.length || 0}</span> de <span className="font-medium">{totalCount}</span> veículos
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                <ChevronLeft size={16} />
+              </Button>
+              <span className="text-sm font-medium px-2">
+                Página {page} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal de Cadastro/Edição */}
