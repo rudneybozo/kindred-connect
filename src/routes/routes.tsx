@@ -508,6 +508,10 @@ function RoutesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
                             <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => exportToPDF(route)}>
+                              <FileDown size={14} className="mr-2" /> Exportar PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem 
                               className="text-red-600 focus:text-red-600 focus:bg-red-50"
                               onClick={() => handleDeleteClick(route)}
