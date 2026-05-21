@@ -693,17 +693,31 @@ function RoutesPage() {
                         </div>
 
                         <MapView 
-                          stops={form.watch('customer_ids').map(id => {
-                            const c = customers?.find(cust => cust.id === id);
-                            if (!c) return null;
-                            return {
-                              id: c.id,
-                              latitude: Number(c.latitude),
-                              longitude: Number(c.longitude),
-                              name: c.name
-                            };
-                          }).filter(Boolean) as any} 
-
+                          stops={[
+                            // Add vehicle/driver as first point if possible
+                            ...(form.watch('vehicle_id') ? [{
+                              id: 'vehicle-start',
+                              latitude: Number(customers?.[0]?.latitude || 0), 
+                              longitude: Number(customers?.[0]?.longitude || 0),
+                              name: 'Ponto de Partida',
+                              type: 'vehicle' as const,
+                              driverName: drivers?.find(d => d.id === form.watch('driver_id'))?.full_name
+                            }] : []),
+                            ...form.watch('customer_ids').map(id => {
+                              const c = customers?.find(cust => cust.id === id);
+                              if (!c) return null;
+                              return {
+                                id: c.id,
+                                latitude: Number(c.latitude),
+                                longitude: Number(c.longitude),
+                                name: c.name,
+                                type: 'customer' as const,
+                                order_index: optimizedData?.routes[0]?.steps
+                                  ?.filter((s: any) => s.type === 'job')
+                                  ?.findIndex((s: any) => form.getValues('customer_ids')[s.id] === id)
+                              };
+                            }).filter(Boolean) as any
+                          ]} 
                           routeGeometry={optimizedData.routes[0].geometry}
                         />
 
