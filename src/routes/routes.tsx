@@ -160,8 +160,8 @@ function RoutesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('vehicles')
-        .select('id, name, plate')
-        .eq('status', 'disponivel')
+        .select('id, name, plate, status')
+        .order('name')
       
       if (error) throw error
       return data
@@ -286,8 +286,8 @@ function RoutesPage() {
 
   const handleOptimize = async () => {
     const values = form.getValues()
-    if (!values.customer_ids.length) {
-      toast.error('Selecione pelo menos um cliente')
+    if (values.customer_ids.length < 2) {
+      toast.error('Selecione pelo menos 2 clientes (o primeiro será considerado o Ponto de Partida)')
       return
     }
 
@@ -296,6 +296,11 @@ function RoutesPage() {
       const selectedCustomers = values.customer_ids.map(id => 
         customers?.find(c => c.id === id)
       ).filter(Boolean)
+
+      if (selectedCustomers.some(c => !c?.latitude || !c?.longitude)) {
+        toast.error('Alguns clientes selecionados não possuem coordenadas geográficas configuradas.')
+        return
+      }
 
       const { data, error } = await supabase.functions.invoke('optimize-route', {
         body: { locations: selectedCustomers }
@@ -611,8 +616,15 @@ function RoutesPage() {
                             </FormControl>
                             <SelectContent>
                               {vehicles?.map(v => (
-                                <SelectItem key={v.id} value={v.id}>
-                                  {v.name} ({v.plate})
+                                <SelectItem key={v.id} value={v.id} disabled={v.status === 'manutencao'}>
+                                  <div className="flex items-center justify-between w-full gap-2">
+                                    <span>{v.name} ({v.plate})</span>
+                                    {v.status && v.status !== 'disponivel' && (
+                                      <Badge variant="outline" className="text-[10px] h-4 px-1 capitalize">
+                                        {v.status.replace('_', ' ')}
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </SelectItem>
                               ))}
                             </SelectContent>
