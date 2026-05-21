@@ -81,6 +81,8 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import MapView from '@/components/MapView'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const routeSchema = z.object({
   vehicle_id: z.string().min(1, 'Selecione um veículo'),
