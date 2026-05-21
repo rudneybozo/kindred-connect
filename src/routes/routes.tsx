@@ -621,17 +621,45 @@ function RoutesPage() {
                       {route.duration ? `${Math.round(route.duration / 60)} min` : '-'}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <UserIcon size={14} className="text-slate-400" />
-                        <span>{route.driver?.full_name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
                       <Badge variant="secondary" className="font-normal">
                         {route.stops?.length || 0} paradas
                       </Badge>
                     </TableCell>
                     <TableCell>{getStatusBadge(route.status)}</TableCell>
+                    <TableCell>
+                      {route.route_geometry && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8">
+                              <MapIconUI size={14} className="mr-1" /> Ver
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl h-[600px] p-0 overflow-hidden">
+                            <MapView 
+                              stops={[
+                                {
+                                  id: 'depot',
+                                  latitude: route.stops?.[0]?.customer?.latitude || 0,
+                                  longitude: route.stops?.[0]?.customer?.longitude || 0,
+                                  name: 'Ponto de Partida',
+                                  type: 'vehicle' as const,
+                                  driverName: route.driver?.full_name
+                                },
+                                ...(route.stops?.map((s: any) => ({
+                                  id: s.id,
+                                  latitude: s.customer?.latitude,
+                                  longitude: s.customer?.longitude,
+                                  name: s.customer?.name,
+                                  order_index: s.order_index,
+                                  type: 'customer' as const
+                                })) || [])
+                              ]} 
+                              routeGeometry={route.route_geometry}
+                            />
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                    </TableCell>
                     {canManage && (
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -642,6 +670,9 @@ function RoutesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
                             <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleEditClick(route)}>
+                              <Pencil size={14} className="mr-2" /> Editar
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => exportToPDF(route)}>
                               <FileDown size={14} className="mr-2" /> Exportar PDF
                             </DropdownMenuItem>
