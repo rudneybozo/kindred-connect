@@ -191,17 +191,30 @@ function RoutesPage() {
     mutationFn: async (values: RouteFormValues) => {
       const { customer_ids, ...routeData } = values
       
+      const payload = {
+        ...routeData,
+        distance: optimizedData?.routes[0]?.distance || 0,
+        duration: optimizedData?.routes[0]?.duration || 0,
+        route_geometry: optimizedData?.routes[0]?.geometry || null,
+      }
+
       // 1. Create route
       const { data: route, error: routeError } = await supabase
         .from('routes')
-        .insert([routeData])
+        .insert([payload])
         .select()
         .single()
       
       if (routeError) throw routeError
 
-      // 2. Create stops
-      const stops = customer_ids.map((customerId, index) => ({
+      // 2. Create stops using optimized order if available
+      const orderedCustomerIds = optimizedData 
+        ? optimizedData.routes[0].steps
+            .filter((s: any) => s.type === 'job')
+            .map((s: any) => customer_ids[s.id])
+        : customer_ids
+
+      const stops = orderedCustomerIds.map((customerId: string, index: number) => ({
         route_id: route.id,
         customer_id: customerId,
         order_index: index,
