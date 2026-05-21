@@ -378,6 +378,8 @@ function RoutesPage() {
                 <TableHead>Data</TableHead>
                 <TableHead>Veículo</TableHead>
                 <TableHead>Motorista</TableHead>
+                <TableHead>Distância</TableHead>
+                <TableHead>Duração</TableHead>
                 <TableHead>Paradas</TableHead>
                 <TableHead>Status</TableHead>
                 {canManage && <TableHead className="text-right">Ações</TableHead>}
