@@ -21,9 +21,19 @@ import {
   LogOut, 
   Menu,
   X,
-  Package2
+  Package2,
+  Search as SearchIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 import appCss from "../styles.css?url";
 
@@ -158,8 +168,20 @@ function RootComponent() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setCommandOpen((open) => !open);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
 
   useEffect(() => {
     const fetchSessionAndProfile = async () => {
@@ -219,16 +241,34 @@ function RootComponent() {
           <>
             <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} role={profile?.role} />
             <div className="lg:pl-64 flex flex-col min-h-screen">
-              <header className="h-16 bg-white border-b flex items-center justify-between px-4 sticky top-0 z-30 lg:hidden">
-                <div className="flex items-center gap-3">
+              <header className="h-16 bg-white border-b flex items-center justify-between px-4 sticky top-0 z-30">
+                <div className="flex items-center gap-3 lg:hidden">
                   <div className="p-2 bg-blue-600 rounded-lg text-white">
                     <Package2 size={20} />
                   </div>
                   <span className="font-bold text-slate-900">Roteirização</span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
-                  <Menu size={24} />
-                </Button>
+                
+                {/* Global Search Button */}
+                <div className="hidden lg:flex items-center flex-1 max-w-md ml-4">
+                  <Button
+                    variant="outline"
+                    className="relative w-full justify-start text-sm text-muted-foreground sm:pr-12 bg-slate-50/50 border-slate-200"
+                    onClick={() => setCommandOpen(true)}
+                  >
+                    <SearchIcon className="mr-2 h-4 w-4" />
+                    <span>Busca global...</span>
+                    <kbd className="pointer-events-none absolute right-1.5 top-1.5 hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+                      <span className="text-xs">⌘</span>K
+                    </kbd>
+                  </Button>
+                </div>
+
+                <div className="lg:hidden">
+                  <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
+                    <Menu size={24} />
+                  </Button>
+                </div>
               </header>
               <main className="flex-1 p-4 lg:p-8">
                 <Outlet />
@@ -239,6 +279,42 @@ function RootComponent() {
         {isLoginPage && <Outlet />}
         {!session && !isLoginPage && null}
         <Toaster />
+        
+        {/* Global Search Command */}
+        <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
+          <CommandInput placeholder="Digite para buscar páginas..." />
+          <CommandList>
+            <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
+            <CommandGroup heading="Navegação">
+              <CommandItem onSelect={() => { navigate({ to: '/dashboard' }); setCommandOpen(false); }}>
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                <span>Dashboard</span>
+              </CommandItem>
+              {profile?.role === 'admin' && (
+                <CommandItem onSelect={() => { navigate({ to: '/users' }); setCommandOpen(false); }}>
+                  <Users className="mr-2 h-4 w-4" />
+                  <span>Usuários</span>
+                </CommandItem>
+              )}
+              {(profile?.role === 'admin' || profile?.role === 'lancador') && (
+                <>
+                  <CommandItem onSelect={() => { navigate({ to: '/vehicles' }); setCommandOpen(false); }}>
+                    <Truck className="mr-2 h-4 w-4" />
+                    <span>Veículos</span>
+                  </CommandItem>
+                  <CommandItem onSelect={() => { navigate({ to: '/customers' }); setCommandOpen(false); }}>
+                    <Package className="mr-2 h-4 w-4" />
+                    <span>Clientes</span>
+                  </CommandItem>
+                </>
+              )}
+              <CommandItem onSelect={() => { navigate({ to: '/routes' }); setCommandOpen(false); }}>
+                <MapPin className="mr-2 h-4 w-4" />
+                <span>Rotas</span>
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </CommandDialog>
       </div>
     </QueryClientProvider>
   );
