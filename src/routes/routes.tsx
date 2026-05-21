@@ -658,27 +658,112 @@ function RoutesPage() {
                         )}
                       </div>
                     </CardContent>
-                  </Card>
-                </div>
-              </ScrollArea>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
 
-              <DialogFooter className="p-6 border-t bg-slate-50">
-                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="bg-blue-600 hover:bg-blue-700"
-                  disabled={createMutation.isPending}
-                >
-                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Criar Rota
-                </Button>
+                <TabsContent value="optimization" className="h-full m-0">
+                  <ScrollArea className="h-full p-6">
+                    {optimizedData && (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                          <Card className="bg-slate-50 border-slate-200">
+                            <CardContent className="p-4 flex items-center gap-3">
+                              <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+                                <RouteIcon size={20} />
+                              </div>
+                              <div>
+                                <p className="text-xs text-slate-500 uppercase font-semibold">Distância Total</p>
+                                <p className="text-lg font-bold">{(optimizedData.routes[0].distance / 1000).toFixed(1)} km</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-slate-50 border-slate-200">
+                            <CardContent className="p-4 flex items-center gap-3">
+                              <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+                                <Clock size={20} />
+                              </div>
+                              <div>
+                                <p className="text-xs text-slate-500 uppercase font-semibold">Tempo Estimado</p>
+                                <p className="text-lg font-bold">{Math.round(optimizedData.routes[0].duration / 60)} min</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+
+                        <MapView 
+                          stops={form.watch('customer_ids').map(id => {
+                            const c = customers?.find(cust => cust.id === id);
+                            return {
+                              id: c.id,
+                              latitude: Number(c.latitude),
+                              longitude: Number(c.longitude),
+                              name: c.name
+                            };
+                          })} 
+                          routeGeometry={optimizedData.routes[0].geometry}
+                        />
+
+                        <div className="space-y-3">
+                          <h3 className="font-semibold text-sm flex items-center gap-2">
+                            <MapIconUI size={16} /> Sequência de Entregas
+                          </h3>
+                          <div className="space-y-2">
+                            {optimizedData.routes[0].steps
+                              .filter((step: any) => step.type === 'job')
+                              .map((step: any, index: number) => {
+                                const customer = customers?.find(c => c.id === form.getValues('customer_ids')[step.id]);
+                                return (
+                                  <div key={index} className="flex items-center gap-3 p-3 bg-white border rounded-lg shadow-sm">
+                                    <div className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
+                                      {index + 1}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold truncate">{customer?.name}</p>
+                                      <p className="text-xs text-slate-500 truncate">{customer?.address}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </ScrollArea>
+                </TabsContent>
+              </div>
+
+              <DialogFooter className="p-6 border-t bg-slate-50 flex flex-row items-center justify-between">
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="secondary"
+                    onClick={handleOptimize}
+                    disabled={isOptimizing || form.watch('customer_ids').length < 1}
+                  >
+                    {isOptimizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 size={14} className="mr-2" />}
+                    Otimizar
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="bg-blue-600 hover:bg-blue-700"
+                    disabled={createMutation.isPending || (currentTab === 'config' && !optimizedData)}
+                  >
+                    {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {optimizedData ? 'Confirmar e Criar' : 'Criar Rota'}
+                  </Button>
+                </div>
               </DialogFooter>
             </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+          </Tabs>
+        </Form>
+      </DialogContent>
+    </Dialog>
 
       {/* Confirmação de Exclusão */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
