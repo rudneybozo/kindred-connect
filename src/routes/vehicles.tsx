@@ -304,7 +304,7 @@ function VehiclesPage() {
                     <TableCell className="text-slate-600">{vehicle.plate}</TableCell>
                     <TableCell className="text-slate-600">{vehicle.model}</TableCell>
                     <TableCell className="text-slate-600 font-mono">{vehicle.capacity}</TableCell>
-                    <TableCell>{getStatusBadge(vehicle.status)}</TableCell>
+                    <TableCell>{getStatusBadge(vehicle.status || 'disponivel')}</TableCell>
                     {canManage && (
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -350,7 +350,7 @@ function VehiclesPage() {
                     <h3 className="font-bold text-slate-900">{vehicle.name || vehicle.model}</h3>
                     <p className="text-xs text-slate-500 uppercase font-mono">{vehicle.plate}</p>
                   </div>
-                  {getStatusBadge(vehicle.status)}
+                  {getStatusBadge(vehicle.status || 'disponivel')}
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm text-slate-600">
                   <div>
