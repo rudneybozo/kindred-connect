@@ -17,8 +17,17 @@ import {
   Truck,
   Wand2,
   Route as RouteIcon,
-  Map as MapIconUI
+  Map as MapIconUI,
+  FileDown
 } from 'lucide-react'
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
+import { UserOptions } from 'jspdf-autotable'
+
+// Add type for jsPDF with autotable
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: UserOptions) => jsPDF;
+}
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
