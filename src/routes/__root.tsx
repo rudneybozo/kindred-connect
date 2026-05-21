@@ -49,22 +49,26 @@ function NotFoundComponent() {
   );
 }
 
-function Sidebar({ open, setOpen }: { open: boolean, setOpen: (v: boolean) => void }) {
+function Sidebar({ open, setOpen, role }: { open: boolean, setOpen: (v: boolean) => void, role?: string }) {
   const navigate = useNavigate();
   const location = useLocation();
 
   const menuItems = [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
-    { label: 'Usuários', icon: Users, to: '/users' },
-    { label: 'Veículos', icon: Truck, to: '/vehicles' },
-    { label: 'Clientes', icon: Package, to: '/customers' },
-    { label: 'Rotas', icon: MapPin, to: '/routes' },
+    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard', roles: ['admin', 'lancador', 'motorista'] },
+    { label: 'Usuários', icon: Users, to: '/users', roles: ['admin'] },
+    { label: 'Veículos', icon: Truck, to: '/vehicles', roles: ['admin', 'lancador'] },
+    { label: 'Clientes', icon: Package, to: '/customers', roles: ['admin', 'lancador'] },
+    { label: 'Rotas', icon: MapPin, to: '/routes', roles: ['admin', 'lancador', 'motorista'] },
   ];
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate({ to: '/login' });
   };
+
+  const filteredMenuItems = menuItems.filter(item => 
+    !role || item.roles.includes(role)
+  );
 
   return (
     <>
@@ -78,7 +82,7 @@ function Sidebar({ open, setOpen }: { open: boolean, setOpen: (v: boolean) => vo
           </div>
 
           <nav className="flex-1 px-4 space-y-1">
-            {menuItems.map((item) => (
+            {filteredMenuItems.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
@@ -116,6 +120,7 @@ function Sidebar({ open, setOpen }: { open: boolean, setOpen: (v: boolean) => vo
     </>
   );
 }
+
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
