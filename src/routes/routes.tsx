@@ -57,6 +57,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog'
 import {
   AlertDialog,
@@ -164,12 +165,14 @@ function RoutesPage() {
           driver:profiles!routes_driver_id_fkey(full_name),
           stops:route_stops(
             id,
-            customer:customers(name, address)
+            customer:customers(id, name, address, latitude, longitude)
           )
         `, { count: 'exact' })
       
-      // Since vehicle/driver info is in related tables, OR condition across tables 
-      // is complex in Supabase JS client. We'll simplify or use search params on routes.
+      if (debouncedSearch) {
+        // Simple filter on the main table fields
+        query = query.or(`status.ilike.%${debouncedSearch}%`)
+      }
       
       const from = (page - 1) * pageSize
       const to = from + pageSize - 1
@@ -287,6 +290,70 @@ function RoutesPage() {
     }
   })
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, values }: { id: string, values: RouteFormValues }) => {
+      const { customer_ids, ...routeData } = values
+      
+      const payload: any = {
+        ...routeData,
+      }
+
+      if (optimizedData) {
+        payload.distance = optimizedData.routes[0].distance
+        payload.duration = optimizedData.routes[0].duration
+        payload.route_geometry = optimizedData.routes[0].geometry
+      }
+
+      // 1. Update route
+      const { error: routeError } = await supabase
+        .from('routes')
+        .update(payload)
+        .eq('id', id)
+      
+      if (routeError) throw routeError
+
+      // 2. Refresh stops if customer list changed
+      // Note: In a real app, we'd compare old and new stops. Here we simplify by replacing.
+      const { error: deleteError } = await supabase
+        .from('route_stops')
+        .delete()
+        .eq('route_id', id)
+      
+      if (deleteError) throw deleteError
+
+      const orderedCustomerIds = optimizedData 
+        ? optimizedData.routes[0].steps
+            .filter((s: any) => s.type === 'job')
+            .map((s: any) => customer_ids[s.id])
+        : customer_ids
+
+      const stops = orderedCustomerIds.map((customerId: string, index: number) => ({
+        route_id: id,
+        customer_id: customerId,
+        order_index: index,
+        status: 'pendente'
+      }))
+
+      const { error: stopsError } = await supabase
+        .from('route_stops')
+        .insert(stops)
+      
+      if (stopsError) throw stopsError
+
+      return { id }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['routes'] })
+      setIsModalOpen(false)
+      setOptimizedData(null)
+      setCurrentTab('config')
+      toast.success('Rota atualizada com sucesso')
+    },
+    onError: (error: any) => {
+      toast.error(`Erro ao atualizar rota: ${error.message}`)
+    }
+  })
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -308,17 +375,30 @@ function RoutesPage() {
 
   const onSubmit = (values: RouteFormValues) => {
     if (isEditing) {
-      // Logic for editing would be similar but needs to handle stop updates
-      toast.info('Edição será implementada em breve. Por favor, exclua e crie uma nova.')
+      updateMutation.mutate({ id: selectedRoute.id, values })
     } else {
       createMutation.mutate(values)
     }
   }
 
-  const handleDeleteClick = (route: any) => {
+  const handleEditClick = (route: any) => {
     setSelectedRoute(route)
-    setIsDeleteDialogOpen(true)
+    setIsEditing(true)
+    setOptimizedData(null)
+    setCurrentTab('config')
+    
+    form.reset({
+      vehicle_id: route.vehicle_id,
+      driver_id: route.driver_id,
+      delivery_date: route.delivery_date,
+      status: route.status,
+      customer_ids: route.stops?.map((s: any) => s.customer?.id).filter(Boolean) || [],
+    })
+    
+    setIsModalOpen(true)
   }
+
+  const handleDeleteClick = (route: any) => {
 
   const handleOptimize = async () => {
     const values = form.getValues()
@@ -490,6 +570,7 @@ function RoutesPage() {
                 <TableHead>Duração</TableHead>
                 <TableHead>Paradas</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Mapa</TableHead>
                 {canManage && <TableHead className="text-right">Ações</TableHead>}
               </TableRow>
             </TableHeader>
@@ -541,17 +622,45 @@ function RoutesPage() {
                       {route.duration ? `${Math.round(route.duration / 60)} min` : '-'}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <UserIcon size={14} className="text-slate-400" />
-                        <span>{route.driver?.full_name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
                       <Badge variant="secondary" className="font-normal">
                         {route.stops?.length || 0} paradas
                       </Badge>
                     </TableCell>
                     <TableCell>{getStatusBadge(route.status)}</TableCell>
+                    <TableCell>
+                      {route.route_geometry && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8">
+                              <MapIconUI size={14} className="mr-1" /> Ver
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl h-[600px] p-0 overflow-hidden">
+                            <MapView 
+                              stops={[
+                                {
+                                  id: 'depot',
+                                  latitude: route.stops?.[0]?.customer?.latitude || 0,
+                                  longitude: route.stops?.[0]?.customer?.longitude || 0,
+                                  name: 'Ponto de Partida',
+                                  type: 'vehicle' as const,
+                                  driverName: route.driver?.full_name || undefined
+                                },
+                                ...(route.stops?.map((s: any) => ({
+                                  id: s.id,
+                                  latitude: s.customer?.latitude,
+                                  longitude: s.customer?.longitude,
+                                  name: s.customer?.name,
+                                  order_index: s.order_index,
+                                  type: 'customer' as const
+                                })) || [])
+                              ]} 
+                              routeGeometry={route.route_geometry}
+                            />
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                    </TableCell>
                     {canManage && (
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -562,6 +671,9 @@ function RoutesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
                             <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleEditClick(route)}>
+                              <Pencil size={14} className="mr-2" /> Editar
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => exportToPDF(route)}>
                               <FileDown size={14} className="mr-2" /> Exportar PDF
                             </DropdownMenuItem>
@@ -821,9 +933,9 @@ function RoutesPage() {
                       </div>
                     </CardContent>
                   </Card>
-                </div>
-              </ScrollArea>
-            </TabsContent>
+                    </div>
+                    </ScrollArea>
+                  </TabsContent>
 
                 <TabsContent value="optimization" className="h-full m-0">
                   <ScrollArea className="h-full p-6">
@@ -910,8 +1022,8 @@ function RoutesPage() {
                     )}
                   </ScrollArea>
                 </TabsContent>
-                </div>
-              </Tabs>
+              </div>
+            </Tabs>
 
 
 
@@ -969,3 +1081,6 @@ function RoutesPage() {
     </div>
   )
 }
+}
+
+
