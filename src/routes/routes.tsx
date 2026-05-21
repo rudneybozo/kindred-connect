@@ -732,7 +732,8 @@ function RoutesPage() {
                     )}
                   </ScrollArea>
                 </TabsContent>
-              </div>
+              </Tabs>
+
 
               <DialogFooter className="p-6 border-t bg-slate-50 flex flex-row items-center justify-between">
                 <div className="flex gap-2">
