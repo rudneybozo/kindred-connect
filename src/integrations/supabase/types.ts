@@ -126,9 +126,12 @@ export type Database = {
         Row: {
           created_at: string
           delivery_date: string | null
+          distance: number | null
           driver_id: string | null
+          duration: number | null
           end_location: string | null
           id: string
+          route_geometry: string | null
           start_location: string | null
           status: string
           updated_at: string
@@ -137,9 +140,12 @@ export type Database = {
         Insert: {
           created_at?: string
           delivery_date?: string | null
+          distance?: number | null
           driver_id?: string | null
+          duration?: number | null
           end_location?: string | null
           id?: string
+          route_geometry?: string | null
           start_location?: string | null
           status?: string
           updated_at?: string
@@ -148,9 +154,12 @@ export type Database = {
         Update: {
           created_at?: string
           delivery_date?: string | null
+          distance?: number | null
           driver_id?: string | null
+          duration?: number | null
           end_location?: string | null
           id?: string
+          route_geometry?: string | null
           start_location?: string | null
           status?: string
           updated_at?: string
