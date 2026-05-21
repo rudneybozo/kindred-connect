@@ -338,6 +338,8 @@ function RoutesPage() {
           <Button 
             onClick={() => {
               setIsEditing(false)
+              setOptimizedData(null)
+              setCurrentTab('config')
               form.reset({
                 vehicle_id: '',
                 driver_id: '',
