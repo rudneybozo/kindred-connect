@@ -20,7 +20,10 @@ export type Database = {
           contact_info: Json | null
           created_at: string
           id: string
+          latitude: number | null
+          longitude: number | null
           name: string
+          phone: string | null
           updated_at: string
         }
         Insert: {
@@ -28,7 +31,10 @@ export type Database = {
           contact_info?: Json | null
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name: string
+          phone?: string | null
           updated_at?: string
         }
         Update: {
@@ -36,7 +42,10 @@ export type Database = {
           contact_info?: Json | null
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
+          phone?: string | null
           updated_at?: string
         }
         Relationships: []
