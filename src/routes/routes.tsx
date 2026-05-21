@@ -471,8 +471,22 @@ function RoutesPage() {
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
-              <ScrollArea className="flex-1 p-6">
-                <div className="space-y-6">
+              <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1 flex flex-col overflow-hidden">
+                <div className="px-6 border-b bg-slate-50/50">
+                  <TabsList className="grid w-full grid-cols-2 mt-2">
+                    <TabsTrigger value="config" className="flex items-center gap-2">
+                      <Pencil size={14} /> Configuração
+                    </TabsTrigger>
+                    <TabsTrigger value="optimization" disabled={!optimizedData} className="flex items-center gap-2">
+                      <Wand2 size={14} /> Otimização
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <div className="flex-1 overflow-hidden">
+                  <TabsContent value="config" className="h-full m-0">
+                    <ScrollArea className="h-full p-6">
+                      <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
