@@ -695,13 +695,15 @@ function RoutesPage() {
                         <MapView 
                           stops={form.watch('customer_ids').map(id => {
                             const c = customers?.find(cust => cust.id === id);
+                            if (!c) return null;
                             return {
                               id: c.id,
                               latitude: Number(c.latitude),
                               longitude: Number(c.longitude),
                               name: c.name
                             };
-                          })} 
+                          }).filter(Boolean) as any} 
+
                           routeGeometry={optimizedData.routes[0].geometry}
                         />
 
