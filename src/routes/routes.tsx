@@ -57,6 +57,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog'
 import {
   AlertDialog,
@@ -643,7 +644,7 @@ function RoutesPage() {
                                   longitude: route.stops?.[0]?.customer?.longitude || 0,
                                   name: 'Ponto de Partida',
                                   type: 'vehicle' as const,
-                                  driverName: route.driver?.full_name
+                                  driverName: route.driver?.full_name || undefined
                                 },
                                 ...(route.stops?.map((s: any) => ({
                                   id: s.id,
