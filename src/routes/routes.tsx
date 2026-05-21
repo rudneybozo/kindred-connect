@@ -127,7 +127,7 @@ function RoutesPage() {
           driver:profiles!routes_driver_id_fkey(full_name),
           stops:route_stops(
             id,
-            customer:customers(nome, endereco)
+            customer:customers(name, address)
           )
         `)
         .order('delivery_date', { ascending: false })
@@ -171,8 +171,8 @@ function RoutesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('customers')
-        .select('id, nome, endereco')
-        .order('nome')
+        .select('id, name, address')
+        .order('name')
       
       if (error) throw error
       return data
@@ -345,7 +345,7 @@ function RoutesPage() {
                 filteredRoutes?.map((route) => (
                   <TableRow key={route.id} className="group">
                     <TableCell className="font-medium text-slate-900">
-                      {format(new Date(route.delivery_date), 'dd/MM/yyyy', { locale: ptBR })}
+                      {route.delivery_date ? format(new Date(route.delivery_date), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -537,9 +537,9 @@ function RoutesPage() {
                                       />
                                     </FormControl>
                                     <FormLabel className="text-sm font-normal cursor-pointer">
-                                      <span className="font-semibold">{customer.nome}</span>
+                                      <span className="font-semibold">{customer.name}</span>
                                       <span className="block text-xs text-slate-500 truncate max-w-[400px]">
-                                        {customer.endereco}
+                                        {customer.address}
                                       </span>
                                     </FormLabel>
                                   </FormItem>
@@ -572,7 +572,7 @@ function RoutesPage() {
                                 const customer = customers?.find(c => c.id === id)
                                 return (
                                   <Badge key={id} variant="secondary" className="bg-white border-blue-200">
-                                    {customer?.nome}
+                                    {customer?.name}
                                   </Badge>
                                 )
                               })}
