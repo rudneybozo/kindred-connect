@@ -658,9 +658,10 @@ function RoutesPage() {
                         )}
                       </div>
                     </CardContent>
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
+                  </Card>
+                </div>
+              </ScrollArea>
+            </TabsContent>
 
                 <TabsContent value="optimization" className="h-full m-0">
                   <ScrollArea className="h-full p-6">
