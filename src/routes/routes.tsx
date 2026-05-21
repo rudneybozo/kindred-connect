@@ -619,7 +619,7 @@ function RoutesPage() {
                                 <SelectItem key={v.id} value={v.id} disabled={v.status === 'manutencao'}>
                                   <div className="flex items-center justify-between w-full gap-2">
                                     <span>{v.name} ({v.plate})</span>
-                                    {v.status !== 'disponivel' && (
+                                    {v.status && v.status !== 'disponivel' && (
                                       <Badge variant="outline" className="text-[10px] h-4 px-1 capitalize">
                                         {v.status.replace('_', ' ')}
                                       </Badge>
