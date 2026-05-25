@@ -26,6 +26,9 @@ function LoginComponent() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+          },
         })
         if (error) throw error
         toast.success('Cadastro realizado! Verifique seu email ou tente entrar.')
@@ -41,6 +44,25 @@ function LoginComponent() {
       }
     } catch (error: any) {
       toast.error(error.message || 'Erro na autenticação')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast.error('Digite seu email acima para receber o link de recuperação')
+      return
+    }
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) throw error
+      toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.')
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao enviar email de recuperação')
     } finally {
       setLoading(false)
     }
@@ -86,7 +108,17 @@ function LoginComponent() {
               {loading ? 'Aguarde...' : isSignUp ? 'Criar Conta' : 'Entrar'}
             </Button>
             
-            <div className="text-center mt-4">
+            <div className="flex flex-col items-center gap-2 mt-4">
+              {!isSignUp && (
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-sm text-slate-600 hover:text-blue-600 hover:underline"
+                  disabled={loading}
+                >
+                  Esqueci minha senha
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsSignUp(!isSignUp)}

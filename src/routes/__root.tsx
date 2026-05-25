@@ -208,7 +208,7 @@ function RootComponent() {
 
       setLoading(false);
       
-      if (!session && location.pathname !== '/login') {
+      if (!session && location.pathname !== '/login' && location.pathname !== '/reset-password') {
         navigate({ to: '/login' });
       } else if (session && (location.pathname === '/login' || location.pathname === '/')) {
         navigate({ to: '/dashboard' });
@@ -228,7 +228,7 @@ function RootComponent() {
         setProfile(profileData);
       } else {
         setProfile(null);
-        if (location.pathname !== '/login') {
+        if (location.pathname !== '/login' && location.pathname !== '/reset-password') {
           navigate({ to: '/login' });
         }
       }
@@ -241,7 +241,7 @@ function RootComponent() {
     return <div className="flex items-center justify-center min-h-screen font-medium text-slate-600">Carregando sistema...</div>;
   }
 
-  const isLoginPage = location.pathname === '/login';
+  const isLoginPage = location.pathname === '/login' || location.pathname === '/reset-password';
 
   return (
     <QueryClientProvider client={queryClient}>
