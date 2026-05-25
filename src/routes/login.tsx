@@ -108,7 +108,17 @@ function LoginComponent() {
               {loading ? 'Aguarde...' : isSignUp ? 'Criar Conta' : 'Entrar'}
             </Button>
             
-            <div className="text-center mt-4">
+            <div className="flex flex-col items-center gap-2 mt-4">
+              {!isSignUp && (
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-sm text-slate-600 hover:text-blue-600 hover:underline"
+                  disabled={loading}
+                >
+                  Esqueci minha senha
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsSignUp(!isSignUp)}
