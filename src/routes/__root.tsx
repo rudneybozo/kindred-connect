@@ -228,7 +228,7 @@ function RootComponent() {
         setProfile(profileData);
       } else {
         setProfile(null);
-        if (location.pathname !== '/login') {
+        if (location.pathname !== '/login' && location.pathname !== '/reset-password') {
           navigate({ to: '/login' });
         }
       }
