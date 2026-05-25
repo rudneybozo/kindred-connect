@@ -241,7 +241,7 @@ function RootComponent() {
     return <div className="flex items-center justify-center min-h-screen font-medium text-slate-600">Carregando sistema...</div>;
   }
 
-  const isLoginPage = location.pathname === '/login';
+  const isLoginPage = location.pathname === '/login' || location.pathname === '/reset-password';
 
   return (
     <QueryClientProvider client={queryClient}>
