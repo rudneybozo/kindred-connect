@@ -208,7 +208,7 @@ function RootComponent() {
 
       setLoading(false);
       
-      if (!session && location.pathname !== '/login') {
+      if (!session && location.pathname !== '/login' && location.pathname !== '/reset-password') {
         navigate({ to: '/login' });
       } else if (session && (location.pathname === '/login' || location.pathname === '/')) {
         navigate({ to: '/dashboard' });
